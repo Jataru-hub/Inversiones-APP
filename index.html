@@ -218,6 +218,44 @@ input[type="date"]::-webkit-date-and-time-value,input[type="month"]::-webkit-dat
   .sum-big{font-size:36px}
   .d-main .v{font-size:36px}
 }
+
+/* Privacidad */
+body.priv .spark svg, body.priv .chart.pos svg, body.priv .donut-wrap svg{filter:blur(7px);opacity:.55}
+.d-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px}
+.d-top .back{margin-bottom:0}
+.icon-btn.on{background:var(--strong);color:var(--strong-ink)}
+.pin-in{font-size:30px!important;letter-spacing:.6em;text-align:center;padding-left:.6em!important}
+.pin-err{color:var(--down);font-size:14px;text-align:center;min-height:20px;margin-top:10px}
+.pin-note{color:var(--ink-2);font-size:14px;margin:0 4px}
+.shake{animation:shake .35s}
+@keyframes shake{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+/* Resumen en dos páginas: Resumen y Reparto */
+.summary{padding:0;overflow:hidden;
+  --d0:#E8613C; --d1:#B9B8B4; --d2:#F1EDE6; --d3:#6E8FD1; --d4:#5DAE8B; --d5:#A57FD6; --d6:#D9B26F; --d7:rgba(150,150,150,.55)}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .summary{
+  --d0:#D8532E; --d1:#8F8E89; --d2:#141414; --d3:#4F72C2; --d4:#3E8F6C; --d5:#8A63C2; --d6:#B98D3E; --d7:rgba(20,20,20,.3)}}
+:root[data-theme="dark"] .summary{--d0:#D8532E; --d1:#8F8E89; --d2:#141414; --d3:#4F72C2; --d4:#3E8F6C; --d5:#8A63C2; --d6:#B98D3E; --d7:rgba(20,20,20,.3)}
+.sum-pages{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+.sum-pages::-webkit-scrollbar{display:none;width:0;height:0;background:transparent}
+.sum-pages{-ms-overflow-style:none;padding-bottom:24px;margin-bottom:-24px}
+.sum-page{flex:0 0 100%;min-width:0;scroll-snap-align:start;scroll-snap-stop:always;padding:20px 20px 12px}
+.sum-dots{display:flex;justify-content:center;gap:6px;padding:2px 0 14px}
+.sum-dots button{width:7px;height:7px;border-radius:999px;background:currentColor;opacity:.3;transition:all .2s}
+.sum-dots button[aria-current="true"]{opacity:.9;width:20px}
+.rep-body{display:flex;align-items:center;justify-content:center;gap:18px;margin-top:16px}
+.donut-wrap{position:relative;width:136px;height:136px;flex:none}
+.donut-wrap svg{width:100%;height:100%;display:block}
+.donut-c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;line-height:1.15;padding:0 26px}
+.donut-c b{font-size:19px;font-weight:600;letter-spacing:-.02em;white-space:nowrap}
+.donut-c span{font-size:11.5px;opacity:.65}
+.rep-list{flex:1 1 auto;max-width:340px;min-width:0;display:flex;flex-direction:column;gap:8px}
+@media (min-width:600px){ .rep-foot{display:flex;justify-content:center} .rep-body{gap:36px;margin:22px 0 6px} .donut-wrap{width:172px;height:172px} .donut-c b{font-size:22px} .rep-row{font-size:14.5px} }
+.rep-row{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:8px;align-items:center;font-size:13.5px}
+.rep-row i{width:10px;height:10px;border-radius:50%}
+.rep-row .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.8}
+.rep-row .v{font-weight:600}
+.rep-foot{margin-top:16px}
+.rep-empty{opacity:.65;font-size:14px;padding:30px 0}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -226,6 +264,7 @@ input[type="date"]::-webkit-date-and-time-value,input[type="month"]::-webkit-dat
   <main id="list">
     <div class="top">
       <h1>Inversiones</h1>
+      <button class="icon-btn" id="eyeBtn" data-act="eye" aria-label="Mostrar cifras"></button>
       <button class="icon-btn" id="refreshBtn" aria-label="Actualizar cotizaciones" title="Actualizar cotizaciones">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>
       </button>
@@ -238,6 +277,7 @@ input[type="date"]::-webkit-date-and-time-value,input[type="month"]::-webkit-dat
         <button class="btn small" id="backupBtn">Guardar copia</button>
         <button class="btn small" id="restoreBtn">Restaurar copia</button>
         <button class="btn small" id="clearExBtn" hidden>Borrar ejemplos</button>
+        <button class="btn small" id="changePinBtn" hidden>Cambiar PIN</button>
       </div>
       <div class="status" id="status"></div>
       <div id="appVer"></div>
@@ -250,10 +290,12 @@ input[type="date"]::-webkit-date-and-time-value,input[type="month"]::-webkit-dat
 
 <script>
 "use strict";
-const APP_VERSION = "Versión 1 · 26 oct 2026";
+const APP_VERSION = "Versión 4 · 27 oct 2026";
 // Worker de Cloudflare que consulta las cotizaciones (Yahoo Finance)
 const PRICE_API = "https://finanzas-cotizaciones.racksvibes.workers.dev";
-const KEY = "inversiones-v1", PKEY = "inversiones-precios-v1";
+const KEY = "inversiones-v1", PKEY = "inversiones-precios-v1", PINKEY = "inversiones-pin-v1";
+const MASK = "•••••";
+const priv = () => !ui.reveal;
 const PRICE_TTL = 4 * 3600e3; // vuelve a pedir cotizaciones cada 4 horas
 
 /* ---------- utilidades ---------- */
@@ -284,13 +326,13 @@ function fmtNum(n, dec = 2){
   i = i.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   return (neg ? "−" : "") + i + (f ? "," + f : "");
 }
-const eur = (n, dec = 2) => fmtNum(n, dec) + " €";
-const eurS = n => (n > 0.004 ? "+" : "") + eur(n);
-const pct = (n, dec = 2) => (n == null || !isFinite(n)) ? "—" : ((n > 0.00005 ? "+" : "") + fmtNum(n * 100, dec) + " %");
+const eur = (n, dec = 2) => priv() ? MASK : fmtNum(n, dec) + " €";
+const eurS = n => priv() ? MASK : (n > 0.004 ? "+" : "") + eur(n);
+const pct = (n, dec = 2) => priv() ? MASK : (n == null || !isFinite(n)) ? "—" : ((n > 0.00005 ? "+" : "") + fmtNum(n * 100, dec) + " %");
 const navDec = n => n >= 1000 ? 2 : n >= 1 ? 4 : 6;
 const fnav = n => (n == null || !isFinite(n)) ? "—" : fmtNum(n, navDec(n)) + " €";
-const fUnits = n => { const s = fmtNum(n, Math.abs(n) >= 100 ? 4 : 6); return s.includes(",") ? s.replace(/0+$/, "").replace(/,$/, "") : s; };
-const tone = n => n > 0.004 ? "up" : n < -0.004 ? "down" : "";
+const fUnits = n => { if (priv()) return MASK; const s = fmtNum(n, Math.abs(n) >= 100 ? 4 : 6); return s.includes(",") ? s.replace(/0+$/, "").replace(/,$/, "") : s; };
+const tone = n => priv() ? "" : n > 0.004 ? "up" : n < -0.004 ? "down" : "";
 const ISIN_RE = /^[A-Z]{2}[A-Z0-9]{9}\d$/;
 const TYPES = { fondo:"Fondo", etf:"ETF", cripto:"Cripto", accion:"Acción", otro:"Otro" };
 const MOVE_TYPES = { aportacion:"Aportación", venta:"Venta", traspaso_in:"Traspaso de entrada", traspaso_out:"Traspaso de salida" };
@@ -305,7 +347,7 @@ const ICON = {
 /* ---------- datos ---------- */
 let state = load();
 let prices = loadPrices();
-const ui = { view:"list", id:null, mode:"total", range:"all", chart:"pos", allMoves:false };
+const ui = { view:"list", id:null, mode:"total", range:"all", chart:"pos", allMoves:false, reveal:false, sumPage:0, rep:"pct", repBy:"inv" };
 let priceStatus = "";
 
 function load(){
@@ -565,6 +607,7 @@ function drawDetailChart(inv){
   const box = $("#chartBox"); if (!box) return;
   const from = rangeStart(ui.range);
   const isPos = ui.chart === "pos";
+  box.classList.toggle("pos", isPos);
   let ser = isPos ? positionSeries(inv, from) : priceSeries(inv, from);
   if (!ser || ser.d.length < 2){ box.innerHTML = `<div class="no-data">Aún no hay datos suficientes para este periodo.</div>`; return; }
   ser = thin(ser, 260);
@@ -572,7 +615,7 @@ function drawDetailChart(inv){
   const PW = W - padR;
   const sc = scale(ser.d, isPos ? [ser.v, ser.c] : [ser.v], PW, H, padT, padB);
   const ticks = [0, 0.5, 1].map(f => sc.min + (sc.max - sc.min) * (0.06 / 1.12 + f * (1 / 1.12)));
-  const tickLbl = v => isPos ? (Math.abs(v) >= 10000 ? fmtNum(v / 1000, 1) + "k" : fmtNum(v, 0)) : fmtNum(v, v >= 1000 ? 0 : 2);
+  const tickLbl = v => isPos && priv() ? "" : isPos ? (Math.abs(v) >= 10000 ? fmtNum(v / 1000, 1) + "k" : fmtNum(v, 0)) : fmtNum(v, v >= 1000 ? 0 : 2);
   let g = "";
   for (const t of ticks){ const yy = sc.y(t).toFixed(1); g += `<line x1="0" x2="${PW}" y1="${yy}" y2="${yy}" stroke="var(--line)" stroke-width="1"/><text x="${W-2}" y="${(+yy+4).toFixed(1)}" text-anchor="end" font-size="11" fill="var(--muted)">${tickLbl(t)}</text>`; }
   g += `<text x="0" y="${H-4}" font-size="11" fill="var(--muted)">${fdate(ser.d[0])}</text><text x="${PW}" y="${H-4}" text-anchor="end" font-size="11" fill="var(--muted)">${fdate(ser.d[ser.d.length-1])}</text>`;
@@ -620,9 +663,153 @@ function drawDetailChart(inv){
   svg.addEventListener("pointercancel", hide);
 }
 
+
+/* ---------- resumen: páginas y reparto ---------- */
+const TYPES_PL = { fondo:"Fondos", etf:"ETF", cripto:"Cripto", accion:"Acciones", otro:"Otros" };
+const TYPE_COLOR = { fondo:0, etf:1, cripto:2, accion:3, otro:4 };
+function repartoData(){
+  const items = [];
+  if (ui.repBy === "type"){
+    const m = new Map();
+    for (const inv of state.investments){ const v = metrics(inv).value, k = TYPES[inv.type] ? inv.type : "otro"; if (v > 0) m.set(k, (m.get(k) || 0) + v); }
+    for (const [k, v] of m) items.push({ name: TYPES_PL[k], v, c: TYPE_COLOR[k] });
+  } else {
+    state.investments.forEach((inv, i) => { const v = metrics(inv).value; if (v > 0) items.push({ name: inv.name, v, c: i }); });
+  }
+  items.sort((a, b) => b.v - a.v);
+  const total = items.reduce((s, x) => s + x.v, 0);
+  // como mucho 7 colores fijos por inversión; el resto se agrupa en «Otras»
+  // se ven como mucho 6 (las de más peso) y el resto se agrupa en «Otras», así nunca se desborda
+  let shown = items, rest = [];
+  if (items.length > 7){ shown = items.slice(0, 6); rest = items.slice(6); }
+  // cada una conserva su color; si su color pasa de los 7 disponibles, toma uno libre
+  const used = new Set(shown.filter(x => x.c < 7).map(x => x.c));
+  shown = shown.map(x => { if (x.c < 7) return x; let c = 0; while (used.has(c)) c++; used.add(c); return { ...x, c }; });
+  if (rest.length) shown.push({ name: `Otras (${rest.length})`, v: rest.reduce((s, x) => s + x.v, 0), c: 7 });
+  return { items: shown, total, count: items.length };
+}
+function donutSVG(items, total){
+  const C = 68, r = 56, sw = 16;
+  if (!total) return `<svg viewBox="0 0 136 136" aria-hidden="true"><circle cx="${C}" cy="${C}" r="${r}" fill="none" stroke="currentColor" stroke-opacity=".2" stroke-width="${sw}"/></svg>`;
+  if (items.length === 1) return `<svg viewBox="0 0 136 136" aria-hidden="true"><circle cx="${C}" cy="${C}" r="${r}" fill="none" stroke="var(--d${items[0].c})" stroke-width="${sw}"/></svg>`;
+  const cap = (sw / 2) / r * 180 / Math.PI, gap = 2 * cap + 5;
+  const pt = a => { const t = a * Math.PI / 180; return [(C + r * Math.cos(t)).toFixed(2), (C + r * Math.sin(t)).toFixed(2)]; };
+  let a = -90, out = "";
+  for (const it of items){
+    const span = it.v / total * 360, a0 = a + gap / 2, a1 = a + span - gap / 2;
+    if (a1 - a0 > 0.5){
+      const [x0, y0] = pt(a0), [x1, y1] = pt(a1);
+      out += `<path d="M${x0} ${y0}A${r} ${r} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${x1} ${y1}" fill="none" stroke="var(--d${it.c})" stroke-width="${sw}" stroke-linecap="round"/>`;
+    } else { const [x, y] = pt(a + span / 2); out += `<circle cx="${x}" cy="${y}" r="${sw / 2}" fill="var(--d${it.c})"/>`; }
+    a += span;
+  }
+  return `<svg viewBox="0 0 136 136" role="img" aria-label="Reparto de la cartera">${out}</svg>`;
+}
+function repartoHTML(){
+  const { items, total, count } = repartoData();
+  const head = `<div class="sum-head"><span class="sum-lbl">Reparto</span>
+    <div class="seg-mini" role="group" aria-label="Unidad"><button data-rep="pct" aria-pressed="${ui.rep === "pct"}">%</button><button data-rep="eur" aria-pressed="${ui.rep === "eur"}">€</button></div></div>`;
+  const foot = `<div class="rep-foot"><div class="seg-mini" role="group" aria-label="Agrupar">
+    <button data-repby="inv" aria-pressed="${ui.repBy === "inv"}">Por inversión</button><button data-repby="type" aria-pressed="${ui.repBy === "type"}">Por tipo</button></div></div>`;
+  if (!total) return head + `<div class="rep-empty">Cuando añadas inversiones verás aquí cómo se reparte tu dinero.</div>` + foot;
+  const val = v => priv() ? MASK : ui.rep === "eur" ? fmtNum(v, 0) + " €" : fmtNum(v / total * 100, 1) + " %";
+  const center = ui.rep === "eur"
+    ? `<b>${priv() ? MASK : fmtNum(total, 0) + " €"}</b><span>en total</span>`
+    : "";
+  return head + `<div class="rep-body"><div class="donut-wrap">${donutSVG(items, total)}<div class="donut-c num">${center}</div></div>
+    <div class="rep-list num">${items.map(it => `<div class="rep-row"><i style="background:var(--d${it.c})"></i><span class="n">${esc(it.name)}</span><span class="v">${val(it.v)}</span></div>`).join("")}</div></div>` + foot;
+}
+function renderSummary(page1){
+  const el = $("#summary");
+  el.innerHTML = `<div class="sum-pages" id="sumPages"><div class="sum-page">${page1}</div><div class="sum-page">${repartoHTML()}</div></div>
+    <div class="sum-dots"><button data-page="0" aria-label="Resumen"></button><button data-page="1" aria-label="Reparto"></button></div>`;
+  const sp = $("#sumPages");
+  const dots = () => el.querySelectorAll("[data-page]").forEach(b => b.setAttribute("aria-current", +b.dataset.page === ui.sumPage));
+  sp.scrollLeft = ui.sumPage * sp.clientWidth; dots();
+  sp.addEventListener("scroll", () => { const pg = Math.round(sp.scrollLeft / Math.max(1, sp.clientWidth)); if (pg !== ui.sumPage){ ui.sumPage = pg; dots(); } }, { passive:true });
+}
+
+/* ---------- privacidad: PIN ---------- */
+const EYE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.6 5.1A10.9 10.9 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a10.6 10.6 0 0 0 5.4-1.5"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="M3 3l18 18"/></svg>';
+const eyeIcon = () => ui.reveal ? EYE : EYE_OFF;
+function getPin(){ try { return JSON.parse(localStorage.getItem(PINKEY)); } catch { return null; } }
+async function hashPin(pin, salt){
+  const data = new TextEncoder().encode(salt + ":" + pin);
+  if (window.crypto && crypto.subtle){
+    const h = await crypto.subtle.digest("SHA-256", data);
+    return [...new Uint8Array(h)].map(b => b.toString(16).padStart(2, "0")).join("");
+  }
+  let h = 5381; for (const c of data) h = ((h * 33) ^ c) >>> 0; return "x" + h.toString(16);
+}
+function reveal(){ ui.reveal = true; renderAll(); }
+function hideNow(){ if (!ui.reveal) return; ui.reveal = false; renderAll(); }
+function needReveal(cb){ if (ui.reveal) cb(); else askPin(() => { ui.reveal = true; renderAll(); cb(); }); }
+let pinFails = 0, pinLockUntil = 0;
+function askPin(onOk){
+  const P = getPin();
+  if (!P) return createPin(onOk, true);
+  const body = `<p class="pin-note">Introduce tu PIN para ver las cifras.</p>
+    <div class="field"><input class="in pin-in" id="pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="${P.len}" autocomplete="off" aria-label="PIN"></div>
+    <div class="pin-err" id="pinErr"></div>
+    <p class="hint" style="text-align:center"><button id="forgot">¿Has olvidado el PIN?</button></p>`;
+  openSheet("Mostrar cifras", body, "", root => {
+    const inp = root.querySelector("#pin"), err = root.querySelector("#pinErr");
+    const check = async () => {
+      if (Date.now() < pinLockUntil){ err.textContent = "Demasiados intentos. Espera unos segundos."; inp.value = ""; return; }
+      const ok = (await hashPin(inp.value, P.salt)) === P.hash;
+      if (ok){ pinFails = 0; closeSheet(true); onOk(); return; }
+      pinFails++; inp.value = "";
+      if (pinFails >= 5){ pinLockUntil = Date.now() + 30000; pinFails = 0; err.textContent = "Demasiados intentos. Espera 30 segundos."; }
+      else err.textContent = "PIN incorrecto";
+      inp.classList.remove("shake"); void inp.offsetWidth; inp.classList.add("shake");
+    };
+    inp.addEventListener("input", () => { inp.value = inp.value.replace(/\D/g, ""); err.textContent = ""; if (inp.value.length === P.len) check(); });
+    root.querySelector("#forgot").onclick = forgotPin;
+    setTimeout(() => inp.focus(), 250);
+  });
+}
+function createPin(onOk, first){
+  const body = `<p class="pin-note">${first ? "Para ver las cifras necesitas un PIN. Elige uno de 4 a 6 números; te lo pediremos cada vez que quieras mostrarlas." : "Elige un PIN nuevo de 4 a 6 números."}</p>
+    <div class="field"><label for="pin1">PIN</label><input class="in pin-in" id="pin1" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off"></div>
+    <div class="field"><label for="pin2">Repite el PIN</label><input class="in pin-in" id="pin2" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off"></div>
+    <div class="pin-err" id="pinErr"></div>
+    <p class="hint">Si lo olvidas no se puede recuperar: tendrías que borrar los datos de la app y restaurar tu copia de seguridad.</p>`;
+  openSheet(first ? "Crea tu PIN" : "Cambiar PIN", body, `<button class="btn" data-close>Cancelar</button><button class="btn primary" id="ok">Guardar</button>`, root => {
+    const a = root.querySelector("#pin1"), b = root.querySelector("#pin2"), err = root.querySelector("#pinErr");
+    [a, b].forEach(x => x.addEventListener("input", () => { x.value = x.value.replace(/\D/g, ""); err.textContent = ""; }));
+    root.querySelector("#ok").onclick = async () => {
+      if (!/^\d{4,6}$/.test(a.value)){ err.textContent = "El PIN tiene que tener de 4 a 6 números"; return; }
+      if (a.value !== b.value){ err.textContent = "Los dos PIN no coinciden"; b.value = ""; return; }
+      const salt = [...crypto.getRandomValues(new Uint8Array(12))].map(x => x.toString(16).padStart(2, "0")).join("");
+      try { localStorage.setItem(PINKEY, JSON.stringify({ salt, hash: await hashPin(a.value, salt), len: a.value.length })); }
+      catch { err.textContent = "No se pudo guardar el PIN"; return; }
+      closeSheet(true); toast("PIN guardado"); onOk && onOk();
+    };
+    setTimeout(() => a.focus(), 250);
+  });
+}
+function forgotPin(){
+  openSheet("¿Has olvidado el PIN?", `<p class="pin-note">Por seguridad, el PIN no se puede recuperar. Lo que sí puedes hacer es borrar los datos de la app en este dispositivo (se quita también el PIN) y después pulsar «Restaurar copia» para recuperar tu última copia de seguridad. Luego eliges un PIN nuevo.</p><div id="fpBox"></div>`,
+    `<button class="btn" data-close>Cancelar</button><button class="btn danger" id="wipe">Borrar datos y PIN</button>`, root => {
+    root.querySelector("#wipe").onclick = () => {
+      root.querySelector("#fpBox").innerHTML = `<div class="confirm">Se borrarán todas las inversiones de este dispositivo. ¿Seguro?<div class="row"><button class="btn small flat" id="no">No</button><button class="btn small solid-danger" id="yes">Sí, borrar</button></div></div>`;
+      root.querySelector("#no").onclick = () => root.querySelector("#fpBox").innerHTML = "";
+      root.querySelector("#yes").onclick = () => {
+        try { localStorage.removeItem(PINKEY); } catch {}
+        state = { version:1, investments:[], lastBackup:null, lastChange:null }; save(false);
+        ui.reveal = false; ui.view = "list"; closeSheet(true); renderAll(); toast("Datos y PIN borrados. Ya puedes restaurar tu copia.");
+      };
+    };
+  });
+}
+
 /* ---------- pintar ---------- */
 function renderAll(){
   memo.clear();
+  document.body.classList.toggle("priv", priv());
+  const eb = $("#eyeBtn"); eb.innerHTML = eyeIcon(); eb.classList.toggle("on", ui.reveal); eb.setAttribute("aria-label", ui.reveal ? "Ocultar cifras" : "Mostrar cifras");
+  $("#changePinBtn").hidden = !getPin();
   if (ui.view === "detail" && getInv(ui.id)) renderDetail(); else { ui.view = "list"; renderList(); }
   $("#list").hidden = ui.view !== "list"; $("#detail").hidden = ui.view !== "detail";
 }
@@ -634,7 +821,7 @@ function segMode(cls = ""){
 function renderList(){
   const t = totals(), Y = ui.mode === "ytd", n = state.investments.length;
   const g = Y ? t.ytdGain : t.gain, gp = Y ? t.ytdPct : t.gainPct;
-  $("#summary").innerHTML = `
+  const page1 = `
     <div class="sum-head"><span class="sum-lbl">Patrimonio total</span>${segMode()}</div>
     <div class="sum-big num">${eur(t.value)}</div>
     <div class="sum-gain num ${tone(g)}">${eurS(g)} · ${pct(gp)} <span style="opacity:.6;font-weight:500">${Y ? "este año" : "desde el inicio"}</span></div>
@@ -648,6 +835,7 @@ function renderList(){
              <div><div class="k">Rentabilidad total</div><div class="v ${tone(g)}">${pct(gp)}</div></div>
              <div><div class="k">TIR anual</div><div class="v">${t.tir == null ? "—" : pct(t.tir)}</div></div>`}
     </div>`;
+  renderSummary(page1);
 
   // avisos
   let b = "";
@@ -708,7 +896,7 @@ function renderDetail(){
       </button>`).join("") + (moves.length > SHOW ? `<button class="btn flat small" data-act="toggleMoves" style="margin-top:10px;align-self:center">${ui.allMoves ? "Ver menos" : `Ver todos (${moves.length})`}</button>` : "")
     : `<div class="no-data" style="padding:18px 4px">Todavía no hay movimientos. Añade tu primera aportación.</div>`;
   $("#detail").innerHTML = `
-    <button class="back" data-act="back">${ICON.back}Inversiones</button>
+    <div class="d-top"><button class="back" data-act="back">${ICON.back}Inversiones</button><button class="icon-btn ${ui.reveal ? "on" : ""}" data-act="eye" aria-label="${ui.reveal ? "Ocultar cifras" : "Mostrar cifras"}">${eyeIcon()}</button></div>
     <div class="d-head"><h2>${esc(inv.name)}</h2>${segMode("seg-light")}</div>
     <div class="d-meta">
       ${inv.example ? `<span class="pill ex">Ejemplo</span>` : ""}
@@ -728,7 +916,7 @@ function renderDetail(){
              <div class="fact"><div class="k">Rentabilidad</div><div class="v ${tone(gg)}">${pct(gpp)}</div></div>
              <div class="fact"><div class="k">TIR anual</div><div class="v">${m.tir == null ? "—" : pct(m.tir)}</div></div>`}
       <div class="fact"><div class="k">Participaciones</div><div class="v">${fUnits(m.units)}</div></div>
-      <div class="fact"><div class="k">Precio medio</div><div class="v">${fnav(m.avgCost)}</div></div>
+      <div class="fact"><div class="k">Precio medio</div><div class="v">${priv() ? MASK : fnav(m.avgCost)}</div></div>
       ${Math.abs(m.realized) > 0.004 ? `<div class="fact"><div class="k">Ganancia ya realizada</div><div class="v ${tone(m.realized)}">${eurS(m.realized)}</div></div>` : ""}
     </div>
     ${pend.length ? `<div class="banner accent" style="margin:0 0 4px"><span class="dot"></span><div class="txt"><b>${pend.length} aportaci${pend.length === 1 ? "ón pendiente" : "ones pendientes"}</b></div><button data-act="pending" data-inv="${inv.id}">Validar</button></div>` : ""}
@@ -1067,21 +1255,25 @@ function clearExamples(){
 document.addEventListener("click", e => {
   const t = e.target;
   const mode = t.closest("[data-mode]"); if (mode){ ui.mode = mode.dataset.mode; renderAll(); return; }
+  const rep = t.closest("[data-rep]"); if (rep){ ui.rep = rep.dataset.rep; renderAll(); return; }
+  const rb = t.closest("[data-repby]"); if (rb){ ui.repBy = rb.dataset.repby; renderAll(); return; }
+  const pg = t.closest("[data-page]"); if (pg){ const sp = $("#sumPages"); sp.scrollTo({ left: +pg.dataset.page * sp.clientWidth, behavior:"smooth" }); return; }
   const q = t.closest("[data-quick]"); if (q){ e.stopPropagation(); quickAdd(q.dataset.quick); return; }
   const open = t.closest("[data-open]"); if (open){ ui.view = "detail"; ui.id = open.dataset.open; ui.range = "all"; ui.allMoves = false; renderAll(); window.scrollTo(0, 0); return; }
   const rg = t.closest("[data-range]"); if (rg){ ui.range = rg.dataset.range; document.querySelectorAll("[data-range]").forEach(b => b.setAttribute("aria-pressed", b === rg)); drawDetailChart(getInv(ui.id)); return; }
   const ch = t.closest("[data-chart]"); if (ch){ ui.chart = ch.dataset.chart; renderDetail(); return; }
-  const mv = t.closest("[data-move]"); if (mv){ openMove(ui.id, mv.dataset.move); return; }
+  const mv = t.closest("[data-move]"); if (mv){ needReveal(() => openMove(ui.id, mv.dataset.move)); return; }
   const a = t.closest("[data-act]"); if (!a) return;
   const act = a.dataset.act;
-  if (act === "add") openAddInvestment();
+  if (act === "eye"){ ui.reveal ? hideNow() : askPin(reveal); }
+  else if (act === "add") openAddInvestment();
   else if (act === "back"){ ui.view = "list"; renderAll(); window.scrollTo(0, 0); }
   else if (act === "pending") openPending(a.dataset.inv);
-  else if (act === "backup") doBackup();
+  else if (act === "backup") needReveal(doBackup);
   else if (act === "clearEx") clearExamples();
   else if (act === "addMove") openMove(ui.id);
   else if (act === "toggleMoves"){ ui.allMoves = !ui.allMoves; renderDetail(); }
-  else if (act === "periodic") openPeriodic(ui.id);
+  else if (act === "periodic") needReveal(() => openPeriodic(ui.id));
   else if (act === "editInv") openEditInv(ui.id);
   else if (act === "manualPrice") openManualPrice(ui.id);
   else if (act === "delInv"){
@@ -1103,11 +1295,16 @@ function quickAdd(id){
   openMove(id, null, preset);
 }
 $("#refreshBtn").onclick = () => refreshPrices(true);
-$("#backupBtn").onclick = doBackup;
+$("#backupBtn").onclick = () => needReveal(doBackup);
+$("#changePinBtn").onclick = () => askPin(() => createPin(null, false));
 $("#restoreBtn").onclick = () => $("#fileIn").click();
 $("#clearExBtn").onclick = clearExamples;
 let rzT; window.addEventListener("resize", () => { clearTimeout(rzT); rzT = setTimeout(() => { if (ui.view === "detail") drawDetailChart(getInv(ui.id)); }, 150); });
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { memo.clear(); renderAll(); refreshPrices(); } });
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden"){ if (ui.reveal){ ui.reveal = false; closeSheet(true); renderAll(); } return; }
+  memo.clear(); renderAll(); refreshPrices();
+});
+window.addEventListener("pagehide", () => { ui.reveal = false; });
 
 if (!localStorage.getItem(KEY)) save(false);
 renderAll();
