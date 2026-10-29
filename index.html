@@ -231,10 +231,10 @@ body.priv .spark svg, body.priv .chart.pos svg, body.priv .donut-wrap svg{filter
 @keyframes shake{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
 /* Resumen en dos páginas: Resumen y Reparto */
 .summary{padding:0;overflow:hidden;
-  --d0:#E8613C; --d1:#B9B8B4; --d2:#F1EDE6; --d3:#6E8FD1; --d4:#5DAE8B; --d5:#A57FD6; --d6:#D9B26F; --d7:rgba(150,150,150,.55)}
+  --d0:#E8613C; --d1:#B9B8B4; --d2:#F1EDE6; --d3:#6E8FD1; --d4:#5DAE8B; --d5:#A57FD6; --d6:#D9B26F; --d7:rgba(255,255,255,.2)}
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .summary{
-  --d0:#D8532E; --d1:#8F8E89; --d2:#141414; --d3:#4F72C2; --d4:#3E8F6C; --d5:#8A63C2; --d6:#B98D3E; --d7:rgba(20,20,20,.3)}}
-:root[data-theme="dark"] .summary{--d0:#D8532E; --d1:#8F8E89; --d2:#141414; --d3:#4F72C2; --d4:#3E8F6C; --d5:#8A63C2; --d6:#B98D3E; --d7:rgba(20,20,20,.3)}
+  --d0:#D8532E; --d1:#8F8E89; --d2:#141414; --d3:#4F72C2; --d4:#3E8F6C; --d5:#8A63C2; --d6:#B98D3E; --d7:rgba(20,20,20,.14)}}
+:root[data-theme="dark"] .summary{--d0:#D8532E; --d1:#8F8E89; --d2:#141414; --d3:#4F72C2; --d4:#3E8F6C; --d5:#8A63C2; --d6:#B98D3E; --d7:rgba(20,20,20,.14)}
 .sum-pages{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
 .sum-pages::-webkit-scrollbar{display:none;width:0;height:0;background:transparent}
 .sum-pages{-ms-overflow-style:none;padding-bottom:24px;margin-bottom:-24px}
@@ -254,6 +254,11 @@ body.priv .spark svg, body.priv .chart.pos svg, body.priv .donut-wrap svg{filter
 .rep-row i{width:10px;height:10px;border-radius:50%}
 .rep-row .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.8}
 .rep-row .v{font-weight:600}
+.rep-otras{width:100%;text-align:left;color:inherit;font:inherit;font-size:13.5px}
+.rep-otras .chev{font-size:11px;opacity:.6;margin-left:2px}
+.rep-sub{font-size:12.5px;opacity:.85}
+.rep-sub i{background:transparent!important;border:1.5px solid currentColor;opacity:.4;width:8px;height:8px;margin-left:1px}
+.rep-sub .n{padding-left:2px}
 .rep-foot{margin-top:16px}
 .rep-empty{opacity:.65;font-size:14px;padding:30px 0}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
@@ -291,7 +296,7 @@ body.priv .spark svg, body.priv .chart.pos svg, body.priv .donut-wrap svg{filter
 
 <script>
 "use strict";
-const APP_VERSION = "Versión 5 · 27 oct 2026";
+const APP_VERSION = "Versión 6 · 29 oct 2026";
 // Worker de Cloudflare que consulta las cotizaciones (Yahoo Finance)
 const PRICE_API = "https://finanzas-cotizaciones.racksvibes.workers.dev";
 const KEY = "inversiones-v1", PKEY = "inversiones-precios-v1", PINKEY = "inversiones-pin-v1";
@@ -348,7 +353,7 @@ const ICON = {
 /* ---------- datos ---------- */
 let state = load();
 let prices = loadPrices();
-const ui = { view:"list", id:null, mode:"total", range:"all", chart:"pos", allMoves:false, reveal:false, sumPage:0, rep:"pct", repBy:"inv" };
+const ui = { view:"list", id:null, mode:"total", range:"all", chart:"pos", allMoves:false, reveal:false, sumPage:0, rep:"pct", repBy:"inv", repOpen:false };
 let priceStatus = "";
 
 function load(){
@@ -680,13 +685,14 @@ function repartoData(){
   items.sort((a, b) => b.v - a.v);
   const total = items.reduce((s, x) => s + x.v, 0);
   // como mucho 7 colores fijos por inversión; el resto se agrupa en «Otras»
-  // se ven como mucho 6 (las de más peso) y el resto se agrupa en «Otras», así nunca se desborda
-  let shown = items, rest = [];
-  if (items.length > 7){ shown = items.slice(0, 6); rest = items.slice(6); }
+  // van a «Otras» las que pesan menos de un 5 % (no caben en el anillo) y, si aun así hay más de 6, las de menos peso
+  const MIN_SHARE = 0.05;
+  let shown = items.filter(x => total > 0 && x.v / total >= MIN_SHARE), rest = items.filter(x => !(total > 0 && x.v / total >= MIN_SHARE));
+  if (rest.length ? shown.length > 6 : shown.length > 7){ rest = shown.slice(6).concat(rest); shown = shown.slice(0, 6); }
   // cada una conserva su color; si su color pasa de los 7 disponibles, toma uno libre
   const used = new Set(shown.filter(x => x.c < 7).map(x => x.c));
   shown = shown.map(x => { if (x.c < 7) return x; let c = 0; while (used.has(c)) c++; used.add(c); return { ...x, c }; });
-  if (rest.length) shown.push({ name: `Otras (${rest.length})`, v: rest.reduce((s, x) => s + x.v, 0), c: 7 });
+  if (rest.length) shown.push({ name: `Otras (${rest.length})`, v: rest.reduce((s, x) => s + x.v, 0), c: 7, rest });
   return { items: shown, total, count: items.length };
 }
 function donutSVG(items, total){
@@ -695,15 +701,23 @@ function donutSVG(items, total){
   if (items.length === 1) return `<svg viewBox="0 0 136 136" aria-hidden="true"><circle cx="${C}" cy="${C}" r="${r}" fill="none" stroke="var(--d${items[0].c})" stroke-width="${sw}"/></svg>`;
   const cap = (sw / 2) / r * 180 / Math.PI, gap = 2 * cap + 5;
   const pt = a => { const t = a * Math.PI / 180; return [(C + r * Math.cos(t)).toFixed(2), (C + r * Math.sin(t)).toFixed(2)]; };
+  const minSpan = gap + 2;
+  let spans = items.map(it => it.v / total * 360);
+  for (let k = 0; k < 4; k++){
+    const small = spans.map(x => x < minSpan), need = spans.reduce((s, x, i) => s + (small[i] ? minSpan - x : 0), 0);
+    if (need <= 0.001) break;
+    const big = spans.reduce((s, x, i) => s + (small[i] ? 0 : x - minSpan), 0);
+    spans = spans.map((x, i) => small[i] ? minSpan : x - (x - minSpan) / Math.max(big, 1e-9) * need);
+  }
   let a = -90, out = "";
-  for (const it of items){
-    const span = it.v / total * 360, a0 = a + gap / 2, a1 = a + span - gap / 2;
+  items.forEach((it, idx) => {
+    const span = spans[idx], a0 = a + gap / 2, a1 = a + span - gap / 2;
     if (a1 - a0 > 0.5){
       const [x0, y0] = pt(a0), [x1, y1] = pt(a1);
       out += `<path d="M${x0} ${y0}A${r} ${r} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${x1} ${y1}" fill="none" stroke="var(--d${it.c})" stroke-width="${sw}" stroke-linecap="round"/>`;
     } else { const [x, y] = pt(a + span / 2); out += `<circle cx="${x}" cy="${y}" r="${sw / 2}" fill="var(--d${it.c})"/>`; }
     a += span;
-  }
+  });
   return `<svg viewBox="0 0 136 136" role="img" aria-label="Reparto de la cartera">${out}</svg>`;
 }
 function repartoHTML(){
@@ -718,7 +732,10 @@ function repartoHTML(){
     ? `<b>${priv() ? MASK : fmtNum(total, 0) + " €"}</b><span>en total</span>`
     : "";
   return head + `<div class="rep-body"><div class="donut-wrap">${donutSVG(items, total)}<div class="donut-c num">${center}</div></div>
-    <div class="rep-list num">${items.map(it => `<div class="rep-row"><i style="background:var(--d${it.c})"></i><span class="n">${esc(it.name)}</span><span class="v">${val(it.v)}</span></div>`).join("")}</div></div>` + foot;
+    <div class="rep-list num">${items.map(it => it.rest
+      ? `<button class="rep-row rep-otras" data-repopen aria-expanded="${ui.repOpen}"><i style="background:var(--d${it.c})"></i><span class="n">${esc(it.name)} <span class="chev">${ui.repOpen ? "▴" : "▾"}</span></span><span class="v">${val(it.v)}</span></button>`
+        + (ui.repOpen ? it.rest.map(r => `<div class="rep-row rep-sub"><i></i><span class="n">${esc(r.name)}</span><span class="v">${val(r.v)}</span></div>`).join("") : "")
+      : `<div class="rep-row"><i style="background:var(--d${it.c})"></i><span class="n">${esc(it.name)}</span><span class="v">${val(it.v)}</span></div>`).join("")}</div></div>` + foot;
 }
 function renderSummary(page1){
   const el = $("#summary");
@@ -1370,6 +1387,7 @@ document.addEventListener("click", e => {
   const t = e.target;
   const mode = t.closest("[data-mode]"); if (mode){ ui.mode = mode.dataset.mode; renderAll(); return; }
   const rep = t.closest("[data-rep]"); if (rep){ ui.rep = rep.dataset.rep; renderAll(); return; }
+  const ro = t.closest("[data-repopen]"); if (ro){ ui.repOpen = !ui.repOpen; renderAll(); return; }
   const rb = t.closest("[data-repby]"); if (rb){ ui.repBy = rb.dataset.repby; renderAll(); return; }
   const pg = t.closest("[data-page]"); if (pg){ const sp = $("#sumPages"); sp.scrollTo({ left: +pg.dataset.page * sp.clientWidth, behavior:"smooth" }); return; }
   const q = t.closest("[data-quick]"); if (q){ e.stopPropagation(); quickAdd(q.dataset.quick); return; }
